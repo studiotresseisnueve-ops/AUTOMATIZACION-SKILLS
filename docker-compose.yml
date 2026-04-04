@@ -1,0 +1,30 @@
+services:
+  agent:
+    build: .
+    container_name: agentes_autonomos
+    restart: unless-stopped
+
+    # Load API key and model config from .env on the host
+    env_file:
+      - .env
+
+    volumes:
+      # ── INPUT ──────────────────────────────────────────────────────────
+      # Drop company PDFs here on your PC → they appear inside the container
+      - ./data/empresas:/app/data/empresas
+
+      # ── SKILLS ─────────────────────────────────────────────────────────
+      # Edit/add .md skill files on your PC without rebuilding the image
+      - ./src/prompts:/app/src/prompts:ro
+
+      # ── OUTPUT (tunnel to PC) ───────────────────────────────────────────
+      # Every PDF report saved by the container appears instantly in this
+      # folder on your machine: ./outputs/{empresa}/
+      - ./outputs:/app/outputs
+
+      # ── LOGS ───────────────────────────────────────────────────────────
+      - ./logs:/app/logs
+
+    # Keep stdin open so Ctrl+C reaches the scheduler cleanly
+    stdin_open: false
+    tty: false

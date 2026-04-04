@@ -1,0 +1,154 @@
+"""
+main.py — Entry point for the Autonomous Agent System.
+
+Scheduling:
+  - Every 4 hours : generate/refresh PDF reports for all known companies.
+  - Every 24 hours: full orchestration cycle (skills reloaded, all companies reprocessed).
+
+Both jobs execute the same pipeline; the 24-hour job is an explicit full-refresh marker.
+On startup the pipeline runs immediately before the scheduler begins.
+"""
+import logging
+import sys
+from datetime import datetime
+from pathlib import Path
+
+from apscheduler.schedulers.blocking import BlockingScheduler
+from apscheduler.triggers.interval import IntervalTrigger
+from dotenv import load_dotenv
+
+# Load .env before importing anything that reads env vars
+load_dotenv()
+
+from src.agents.central_agent import CentralAgent  # noqa: E402
+from src.utils.pdf_writer import PDFReportWriter    # noqa: E402
+
+# ------------------------------------------------------------------ #
+#  Logging                                                            #
+# ------------------------------------------------------------------ #
+BASE_DIR = Path(__file__).parent
+LOGS_DIR = BASE_DIR / "logs"
+LOGS_DIR.mkdir(exist_ok=True)
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s  %(levelname)-8s  %(name)s — %(message)s",
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler(LOGS_DIR / "agent_system.log", encoding="utf-8"),
+    ],
+)
+logger = logging.getLogger(__name__)
+
+# ------------------------------------------------------------------ #
+#  Paths (all relative to this file's directory)                      #
+# ------------------------------------------------------------------ #
+PROMPTS_DIR = BASE_DIR / "src" / "prompts"
+EMPRESAS_DIR = BASE_DIR / "data" / "empresas"
+OUTPUTS_DIR = BASE_DIR / "outputs"
+
+
+# ------------------------------------------------------------------ #
+#  Core pipeline                                                      #
+# ------------------------------------------------------------------ #
+def run_pipeline(label: str = "manual") -> None:
+    """
+    Run the full processing pipeline:
+      1. Load skills from src/prompts/*.md
+      2. Read each PDF in data/empresas/
+      3. Apply every skill to every company
+      4. Save one PDF report per (company, skill) pair inside outputs/{company}/
+    """
+    start = datetime.now()
+    logger.info("=" * 60)
+    logger.info("Pipeline triggered  [%s]  %s", label, start.strftime("%Y-%m-%d %H:%M:%S"))
+    logger.info("=" * 60)
+
+    agent = CentralAgent(
+        prompts_dir=PROMPTS_DIR,
+        empresas_dir=EMPRESAS_DIR,
+        outputs_dir=OUTPUTS_DIR,
+    )
+    writer = PDFReportWriter()
+    reports_saved = 0
+
+    for company_name, results in agent.run_cycle():
+        company_dir = OUTPUTS_DIR / company_name
+        company_dir.mkdir(parents=True, exist_ok=True)
+
+        for skill_name, content in results.items():
+            timestamp = start.strftime("%Y%m%d_%H%M%S")
+            filename = f"{skill_name}_{timestamp}.pdf"
+            report_path = company_dir / filename
+
+            writer.generate_report(
+                output_path=report_path,
+                company_name=company_name,
+                skill_name=skill_name,
+                content=content,
+            )
+            reports_saved += 1
+
+    elapsed = (datetime.now() - start).total_seconds()
+    logger.info(
+        "Pipeline finished — %d report(s) saved in %.1f s",
+        reports_saved,
+        elapsed,
+    )
+
+
+# ------------------------------------------------------------------ #
+#  Scheduler jobs                                                     #
+# ------------------------------------------------------------------ #
+def job_4h() -> None:
+    run_pipeline(label="4h-schedule")
+
+
+def job_24h() -> None:
+    run_pipeline(label="24h-full-cycle")
+
+
+# ------------------------------------------------------------------ #
+#  Main                                                               #
+# ------------------------------------------------------------------ #
+if __name__ == "__main__":
+    # Ensure required directories exist
+    for directory in (PROMPTS_DIR, EMPRESAS_DIR, OUTPUTS_DIR):
+        directory.mkdir(parents=True, exist_ok=True)
+
+    # Run immediately on startup
+    run_pipeline(label="startup")
+
+    # Configure scheduler
+    scheduler = BlockingScheduler(timezone="America/Mexico_City")
+
+    scheduler.add_job(
+        job_4h,
+        trigger=IntervalTrigger(hours=4),
+        id="report_4h",
+        name="Generate reports every 4 hours",
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=300,
+    )
+
+    scheduler.add_job(
+        job_24h,
+        trigger=IntervalTrigger(hours=24),
+        id="full_cycle_24h",
+        name="Full orchestration cycle every 24 hours",
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=600,
+    )
+
+    logger.info("Scheduler started — reports every 4 h, full cycle every 24 h.")
+    logger.info("Add PDF files to  : %s", EMPRESAS_DIR)
+    logger.info("Add skill prompts  : %s  (*.md files)", PROMPTS_DIR)
+    logger.info("Reports saved to  : %s", OUTPUTS_DIR)
+    logger.info("Press Ctrl+C to stop.\n")
+
+    try:
+        scheduler.start()
+    except (KeyboardInterrupt, SystemExit):
+        logger.info("Scheduler stopped by user.")

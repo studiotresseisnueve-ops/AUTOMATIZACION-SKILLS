@@ -1,0 +1,34 @@
+# Virtual environment — never copy into image
+venv/
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Generated outputs and logs — mounted as volumes at runtime
+outputs/
+logs/
+agent_system.log
+
+# Runtime data — also mounted as volume
+data/
+
+# Dev / IDE
+.vscode/
+.idea/
+*.code-workspace
+
+# Git
+.git/
+.gitignore
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets — passed via env_file, never baked into the image
+.env
