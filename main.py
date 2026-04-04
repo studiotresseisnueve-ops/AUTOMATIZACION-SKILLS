@@ -17,11 +17,10 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from dotenv import load_dotenv
 
-# Load .env before importing anything that reads env vars
 load_dotenv()
 
-from src.agents.central_agent import CentralAgent  # noqa: E402
-from src.utils.pdf_writer import PDFReportWriter    # noqa: E402
+from src.agents.central_agent import CentralAgent
+from src.utils.pdf_writer import PDFReportWriter    
 
 # ------------------------------------------------------------------ #
 #  Logging                                                            #
