@@ -3,6 +3,7 @@ Skill Agent — wraps a single .md skill prompt and calls the OpenAI API.
 
 Each SkillAgent is responsible for one analysis type (e.g. "analisis_financiero").
 It receives the company text extracted from a PDF and returns the analysis as a string.
+Web search is enabled so the model can look up missing company data automatically.
 """
 import logging
 import os
@@ -33,6 +34,9 @@ class SkillAgent:
         """
         Run the skill against a company document.
 
+        Uses the Responses API with web_search_preview so the model can
+        search for missing company data when the PDF is incomplete.
+
         Args:
             company_text: Text extracted from the company PDF.
             company_name: Company identifier (used in the user prompt).
@@ -54,26 +58,41 @@ class SkillAgent:
             company_name,
         )
 
+        payload = dict(
+            model=self._model,
+            max_output_tokens=4096,
+            input=[
+                {"role": "system", "content": self.skill_prompt},
+                {"role": "user", "content": user_message},
+            ],
+        )
+
         try:
-            stream = self._client.chat.completions.create(
-                model=self._model,
-                max_tokens=4096,
-                messages=[
-                    {"role": "system", "content": self.skill_prompt},
-                    {"role": "user", "content": user_message},
-                ],
-                stream=True,
+            response = self._client.responses.create(
+                **payload,
+                tools=[{"type": "web_search_preview"}],
             )
-
-            chunks = []
-            for chunk in stream:
-                delta = chunk.choices[0].delta.content
-                if delta is not None:
-                    chunks.append(delta)
-
-            return "".join(chunks)
+            return response.output_text
 
         except APIError as exc:
+            if exc.status_code in (400, 422):
+                logger.warning(
+                    "web_search_preview not supported by model '%s' — retrying without it. (%s)",
+                    self._model,
+                    exc,
+                )
+                try:
+                    response = self._client.responses.create(**payload)
+                    return response.output_text
+                except APIError as retry_exc:
+                    logger.error(
+                        "API error in skill '%s' for '%s' (fallback): %s",
+                        self.skill_name,
+                        company_name,
+                        retry_exc,
+                    )
+                    return f"[ERROR] No se pudo completar el analisis '{self.skill_name}': {retry_exc}"
+
             logger.error(
                 "API error in skill '%s' for '%s': %s",
                 self.skill_name,

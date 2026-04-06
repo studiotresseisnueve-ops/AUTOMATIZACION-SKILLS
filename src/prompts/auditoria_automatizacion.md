@@ -21,6 +21,17 @@ Use this skill when you need to:
 
 ---
 
+## Datos Insuficientes: Búsqueda Web
+
+Si la información del documento corporativo no contiene los datos necesarios para este análisis:
+
+1. **Identifica qué falta** — nombra explícitamente qué datos no están en el documento (herramientas usadas, procesos internos, tamaño del equipo, tipo de operaciones, etc.)
+2. **Busca en internet** — usa web search con el nombre de la empresa + el dato faltante (ej. `"Empresa X procesos internos"`, `"Empresa X software herramientas"`, `"Empresa X sector operaciones"`)
+3. **Señala las fuentes externas** — indica cuándo un dato proviene de búsqueda web y no del documento original
+4. **No inventes datos** — si la búsqueda tampoco arroja resultado, indícalo en el análisis en lugar de fabricar información
+
+---
+
 ## Core Principle
 
 AUTOMATE THE BORING, REPETITIVE, AND ERROR-PRONE — NEVER AUTOMATE WHAT REQUIRES JUDGMENT, CREATIVITY, OR HUMAN RELATIONSHIPS.

@@ -27,6 +27,17 @@ Use this skill when the user needs to:
 
 ---
 
+## Datos Insuficientes: Búsqueda Web
+
+Si la información del documento corporativo no contiene los datos necesarios para este análisis:
+
+1. **Identifica qué falta** — nombra explícitamente qué datos no están en el documento (nombre de competidores, precios, segmento de mercado, etc.)
+2. **Busca en internet** — usa web search con el nombre de la empresa + el dato faltante (ej. `"Empresa X competidores Mexico"`, `"Empresa X sector industria"`)
+3. **Señala las fuentes externas** — indica cuándo un dato proviene de búsqueda web y no del documento original
+4. **No inventes datos** — si la búsqueda tampoco arroja resultado, indícalo en el análisis en lugar de fabricar información
+
+---
+
 ## Core Principle
 
 COMPETITIVE ANALYSIS IS ONLY VALUABLE WHEN IT DRIVES A DECISION — NEVER DELIVER A MATRIX WITHOUT STRATEGIC RECOMMENDATIONS THAT TELL THE USER WHAT TO DO NEXT.

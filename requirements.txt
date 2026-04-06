@@ -12,3 +12,6 @@ APScheduler>=3.10.4
 
 # Environment variables
 python-dotenv>=1.0.0
+
+# Testing
+pytest>=8.0.0

@@ -115,15 +115,16 @@ if __name__ == "__main__":
     for directory in (PROMPTS_DIR, EMPRESAS_DIR, OUTPUTS_DIR):
         directory.mkdir(parents=True, exist_ok=True)
 
-    # Run immediately on startup
+    # Run immediately on startup — intervals are anchored to when this finishes
     run_pipeline(label="startup")
+    cycle_anchor = datetime.now()
 
     # Configure scheduler
     scheduler = BlockingScheduler(timezone="America/Mexico_City")
 
     scheduler.add_job(
         job_4h,
-        trigger=IntervalTrigger(hours=4),
+        trigger=IntervalTrigger(hours=4, start_date=cycle_anchor, timezone="America/Mexico_City"),
         id="report_4h",
         name="Generate reports every 4 hours",
         max_instances=1,
@@ -133,7 +134,7 @@ if __name__ == "__main__":
 
     scheduler.add_job(
         job_24h,
-        trigger=IntervalTrigger(hours=24),
+        trigger=IntervalTrigger(hours=24, start_date=cycle_anchor, timezone="America/Mexico_City"),
         id="full_cycle_24h",
         name="Full orchestration cycle every 24 hours",
         max_instances=1,
