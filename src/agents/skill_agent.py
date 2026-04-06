@@ -45,10 +45,14 @@ class SkillAgent:
             The model's analysis as a plain string.
         """
         user_message = (
-            f"Empresa analizada: **{company_name}**\n\n"
+            f"Nombre de archivo (solo referencia): **{company_name}**\n\n"
             f"Información extraída del documento corporativo:\n\n"
             f"{company_text}\n\n"
-            "Por favor, realiza el análisis completo según las instrucciones del sistema."
+            "PASO PREVIO OBLIGATORIO: Identifica el nombre real de la empresa o marca "
+            "a partir del documento. Si no aparece con claridad en el texto, usa el nombre "
+            "de archivo como aproximación. Usa ese nombre real en todo el análisis y en "
+            "cualquier búsqueda web que realices para completar información faltante.\n\n"
+            "Realiza el análisis completo según las instrucciones del sistema."
         )
 
         logger.debug(
