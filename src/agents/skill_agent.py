@@ -7,6 +7,7 @@ Web search is enabled so the model can look up missing company data automaticall
 """
 import logging
 import os
+import re
 
 from openai import OpenAI, APIError
 
@@ -52,7 +53,15 @@ class SkillAgent:
             "a partir del documento. Si no aparece con claridad en el texto, usa el nombre "
             "de archivo como aproximación. Usa ese nombre real en todo el análisis y en "
             "cualquier búsqueda web que realices para completar información faltante.\n\n"
-            "Realiza el análisis completo según las instrucciones del sistema."
+            "Realiza el análisis completo según las instrucciones del sistema.\n\n"
+            "FORMATO DE RESPUESTA OBLIGATORIO:\n"
+            "- Usa # para el título principal, ## para secciones, ### para subsecciones\n"
+            "- Usa - para listas con viñetas (sin sangría adicional)\n"
+            "- Usa 1. 2. 3. para listas numeradas\n"
+            "- Usa tablas Markdown con | pipes | para comparaciones y matrices\n"
+            "- NO uses bloques de código (```), usa párrafos o listas en su lugar\n"
+            "- NO uses sangría para sub-viñetas; usa ### o párrafo con negrita como subencabezado\n"
+            "- El texto en **negrita** solo dentro de párrafos o celdas de tabla\n"
         )
 
         logger.debug(
@@ -76,7 +85,8 @@ class SkillAgent:
                 **payload,
                 tools=[{"type": "web_search_preview"}],
             )
-            return response.output_text
+            logger.debug("RAW API response[:300]: %r", response.output_text[:300])
+            return self._clean_text(response.output_text)
 
         except APIError as exc:
             if exc.status_code in (400, 422):
@@ -87,7 +97,7 @@ class SkillAgent:
                 )
                 try:
                     response = self._client.responses.create(**payload)
-                    return response.output_text
+                    return self._clean_text(response.output_text)
                 except APIError as retry_exc:
                     logger.error(
                         "API error in skill '%s' for '%s' (fallback): %s",
@@ -104,3 +114,45 @@ class SkillAgent:
                 exc,
             )
             return f"[ERROR] No se pudo completar el analisis '{self.skill_name}': {exc}"
+
+    @staticmethod
+    def _clean_text(text: str) -> str:
+        """
+        Normalize API output before it reaches the PDF writer.
+
+        Removes:
+        - Outer markdown code-fence wrapper (```markdown ... ```) if the model
+          wrapped the entire response in one
+        - Web-search citation markers: 【N†source】 and variants
+        - Inline reference brackets: [1], [2], etc.
+        - Windows-style CR characters
+        - Runs of more than two consecutive blank lines
+        """
+        # Normalize line endings first so the rest of the regexes are consistent
+        text = text.replace('\r\n', '\n').replace('\r', '\n')
+
+        # Strip outer code-fence wrapper when the model returns the whole
+        # response inside a single ``` block (e.g. ```markdown ... ```)
+        stripped = text.strip()
+        outer_fence = re.match(r'^```[^\n]*\n(.*?)```\s*$', stripped, re.DOTALL)
+        if outer_fence:
+            logger.debug("_clean_text: stripped outer code-fence wrapper")
+            text = outer_fence.group(1)
+
+        # Strip 【N†...】 citation annotations inserted by web_search_preview
+        text = re.sub(r'【\d+†[^】]*】', '', text)
+        # Strip standalone bracket references like [1] or [1, 2]
+        text = re.sub(r'\[\d+(?:,\s*\d+)*\]', '', text)
+        # Normalize unicode bullet characters → standard dash so _draw_content
+        # detects them and _safe() doesn't corrupt them to '?'
+        text = re.sub(r'^([ \t]*)[•·◦▪▸‣➤➢►▶→][ \t]+', r'\1- ', text, flags=re.MULTILINE)
+        # Ensure every markdown heading starts on its own line so _draw_content
+        # can detect them. Lookbehind excludes both \n and # so we don't split
+        # inside ## or ### (e.g. the second # in "## Título" must not trigger).
+        text = re.sub(r'(?<![#\n])(#{1,6} )', r'\n\1', text)
+        # Collapse runs of 3+ blank lines into 2
+        text = re.sub(r'\n{3,}', '\n\n', text)
+
+        result = text.strip()
+        logger.debug("_clean_text preview: %s", result[:300].replace('\n', '↵'))
+        return result
