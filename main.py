@@ -3,9 +3,9 @@ main.py — Entry point for the Autonomous Agent System.
 
 Scheduling:
   - Every 4 hours : generate/refresh PDF reports for all known companies.
-  - Every 24 hours: full orchestration cycle (skills reloaded, all companies reprocessed).
+  - Once a month  : full orchestration cycle (skills reloaded, all companies reprocessed).
 
-Both jobs execute the same pipeline; the 24-hour job is an explicit full-refresh marker.
+Both jobs execute the same pipeline; the monthly job is an explicit full-refresh marker.
 On startup the pipeline runs immediately before the scheduler begins.
 """
 import logging
@@ -14,6 +14,7 @@ from datetime import datetime
 from pathlib import Path
 
 from apscheduler.schedulers.blocking import BlockingScheduler
+from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from dotenv import load_dotenv
 
@@ -106,8 +107,8 @@ def job_4h() -> None:
     run_pipeline(label="4h-schedule")
 
 
-def job_24h() -> None:
-    run_pipeline(label="24h-full-cycle")
+def job_monthly() -> None:
+    run_pipeline(label="monthly-full-cycle")
 
 
 # ------------------------------------------------------------------ #
@@ -158,16 +159,16 @@ if __name__ == "__main__":
     )
 
     scheduler.add_job(
-        job_24h,
-        trigger=IntervalTrigger(hours=24, start_date=cycle_anchor, timezone="America/Mexico_City"),
-        id="full_cycle_24h",
-        name="Full orchestration cycle every 24 hours",
+        job_monthly,
+        trigger=CronTrigger(day=1, hour=0, minute=0, timezone="America/Mexico_City"),
+        id="full_cycle_monthly",
+        name="Full orchestration cycle every month",
         max_instances=1,
         coalesce=True,
         misfire_grace_time=600,
     )
 
-    logger.info("Scheduler started — reports every 4 h, full cycle every 24 h.")
+    logger.info("Scheduler started — reports every 4 h, full cycle every month.")
     logger.info("Company documents : %s", EMPRESAS_DIR)
     logger.info("Company name lists: %s  (one name per line)", LISTAS_DIR)
     logger.info("Skill prompts     : %s  (*.md files)", PROMPTS_DIR)
